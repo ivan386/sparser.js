@@ -79,10 +79,26 @@ function get_file_size(file_path)
 
 function help()
 {
-	log("Usage:");
-	log("cscript sparser.js torrent <sparse_length> <torrent_path> <torrent_file>");
-	log("cscript sparser.js (ed2k|ipfs|tth) <sparse_length> <file_path>");
-	log("cscript sparser.js <block_size> <sparse_length> <file_path>");
+	log('Usage:\n\
+cscript sparser.js torrent <sparse_length> <torrent_path> <torrent_file>\n\
+cscript sparser.js (ed2k|ipfs|tth) <sparse_length> <file_path>\n\
+cscript sparser.js <block_size> <sparse_length> <file_path>\n\
+\n\
+<sparse_length> - Length in bytes or percent(20%) of full length to sparse. It will be aligned by block_size.\n\
+\n\
+<torrent_path> - Full path where downloaded data stored.\n\
+<torrent_file> - Full path to .torrent file that contains metadata about files and folders.\n\
+\n\
+<file_path> - Full path to file to sparse.\n\
+<block_size> - Minimum sparse range length.\n\
+Example:\n\
+\n\
+cscript sparser.js torrent 10% "downloads/iso/" "linux.iso.torrent"\n\
+cscript sparser.js torrent 100000000 "downloads/iso/" "linux.iso.torrent"\n\
+cscript sparser.js ed2k 23% "downloads/iso/linux.iso"\n\
+cscript sparser.js 1024 23% "downloads/iso/linux.iso"\n\
+');
+
 }
 
 function main()
@@ -90,7 +106,14 @@ function main()
 	if (WScript.Arguments.Length >= 3)
 	{
 		var type = WScript.Arguments.Item(0);
-		var sparse_length = parseInt( WScript.Arguments.Item(1) );
+		var sparse_str = WScript.Arguments.Item(1);
+		var sparse_length;
+		
+		if ( sparse_str.slice( -1 ) == "%" &&  parseInt( sparse_str ) < 100 )
+			sparse_length = parseInt( sparse_str ) / 100;
+		else
+			sparse_length = parseInt( sparse_str );
+		
 		if ( sparse_length > 0  )
 		{
 			
@@ -272,15 +295,23 @@ function select_random_blocks( sparse_count, max_count, blocks_map )
 	}
 }
 
+function get_sparse_count( sparse_length,  block_size, length )
+{
+	if ( sparse_length > 0 && sparse_length < 1 )
+		return Math.ceil( length * sparse_length / block_size );
+	else
+		sparse_count = Math.ceil( sparse_length / block_size );
+}
+
 function sparse_random_blocks(blocks_offset, sparse_length, block_size, file_path)
 {
-	
-	var sparse_count = Math.ceil( sparse_length / block_size );
 	
 	var file_size = get_file_size( file_path )
 	
 	if ( file_size )
 	{
+		var sparse_count = get_sparse_count( sparse_length, block_size, file_size );
+		
 		var blocks_map = [];
 		var sparse_blocks = fill_sparse_blocks( blocks_offset, blocks_map, 0, block_size, file_path );
 		
@@ -492,7 +523,8 @@ function sparse_torrent_random(sparse_length, torrent_file, torrent_path)
 	if ( length > 0 )
 	{
 		var max_count = Math.ceil ( length / block_size );
-		var new_sparse_count = Math.ceil( sparse_length / block_size );
+		
+		var new_sparse_count = get_sparse_count( sparse_length, block_size, length );
 		
 		if ( new_sparse_count < max_count - sparse_blocks )
 		{

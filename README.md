@@ -14,7 +14,7 @@ Usage:
 	cscript sparser.js <block_size> <sparse_length> <file_path>
 ```	
 
-```<sparse_length>``` - Length in bytes or percent(20%) of full length to sparse. It will be aligned by block_size.
+```<sparse_length>``` - Length in bytes or percent(20%) of current data length to sparse. It will be aligned by block_size.
 
 ```<torrent_path>``` - Full path where downloaded data stored.
 

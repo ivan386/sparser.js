@@ -84,7 +84,7 @@ cscript sparser.js torrent <sparse_length> <torrent_path> <torrent_file>\n\
 cscript sparser.js (ed2k|ipfs|tth) <sparse_length> <file_path>\n\
 cscript sparser.js <block_size> <sparse_length> <file_path>\n\
 \n\
-<sparse_length> - Length in bytes or percent(20%) of full length to sparse. It will be aligned by block_size.\n\
+<sparse_length> - Length in bytes or percent(20%) of current data length to sparse. It will be aligned by block_size.\n\
 \n\
 <torrent_path> - Full path where downloaded data stored.\n\
 <torrent_file> - Full path to .torrent file that contains metadata about files and folders.\n\
@@ -109,8 +109,14 @@ function main()
 		var sparse_str = WScript.Arguments.Item(1);
 		var sparse_length;
 		
-		if ( sparse_str.slice( -1 ) == "%" &&  parseInt( sparse_str ) < 100 )
-			sparse_length = parseInt( sparse_str ) / 100;
+		if ( sparse_str.slice( -1 ) == "%" )
+		{
+			var percent = parseInt( sparse_str );
+			if ( percent > 0 && percent < 100 )
+				sparse_length = parseInt( sparse_str ) / 100;
+			else
+				return log("percent should be greater than 0 and less than 100");
+		}
 		else
 			sparse_length = parseInt( sparse_str );
 		
@@ -295,10 +301,10 @@ function select_random_blocks( sparse_count, max_count, blocks_map )
 	}
 }
 
-function get_sparse_count( sparse_length,  block_size, length )
+function get_sparse_count( sparse_length,  block_size, length, sparse_blocks )
 {
 	if ( sparse_length > 0 && sparse_length < 1 )
-		return Math.ceil( length * sparse_length / block_size );
+		return Math.ceil( ( length / block_size - sparse_blocks ) * sparse_length );
 	else
 		sparse_count = Math.ceil( sparse_length / block_size );
 }
@@ -310,10 +316,10 @@ function sparse_random_blocks(blocks_offset, sparse_length, block_size, file_pat
 	
 	if ( file_size )
 	{
-		var sparse_count = get_sparse_count( sparse_length, block_size, file_size );
-		
 		var blocks_map = [];
 		var sparse_blocks = fill_sparse_blocks( blocks_offset, blocks_map, 0, block_size, file_path );
+		
+		var sparse_count = get_sparse_count( sparse_length, block_size, file_size, sparse_blocks );
 		
 		if ( block_size * ( sparse_count + sparse_blocks ) >= file_size - blocks_offset )
 			return sparse_all_file(file_path, file_size);
@@ -335,7 +341,7 @@ function decode_bencode(data)
 	var error = function(data, index, msg)
 	{
 		if ( msg ) log( msg );
-		if ( index > 0 )
+		if ( index > 0 && index < data.length )
 		{
 			log( 'error at ' + index + ": " + data.charAt( index ) );
 			log( 'rest of data: ' + unescape( data.substr( index ) ) );
@@ -390,7 +396,10 @@ function decode_bencode(data)
 				)
 					count += ( data.charAt( x + 1 ) == "u" ) ? 5 : 2;
 
-				stack.push( unescape( data.slice( e, i-- ) ) );
+				if( i <= data.length )
+					stack.push( unescape( data.slice( e, i-- ) ) );
+				else
+					return error( data, i, "string length out of data range" );
 
 			case 'e': // end of dictionary or list
 		}
@@ -469,7 +478,7 @@ function sparse_torrent_random(sparse_length, torrent_file, torrent_path)
 		else
 			return log("folder not exists: " + torrent_path);
 
-		for (var i = 0; i < torrent_dict.info.files.length; i++)
+		for ( var i = 0; i < torrent_dict.info.files.length; i++ )
 		{
 			var file = torrent_dict.info.files[i];
 			
@@ -524,12 +533,14 @@ function sparse_torrent_random(sparse_length, torrent_file, torrent_path)
 	{
 		var max_count = Math.ceil ( length / block_size );
 		
-		var new_sparse_count = get_sparse_count( sparse_length, block_size, length );
+		var new_sparse_count = get_sparse_count( sparse_length, block_size, length, sparse_blocks );
 		
 		if ( new_sparse_count < max_count - sparse_blocks )
 		{
 			select_random_blocks( new_sparse_count, max_count, blocks_map );
-			
+
+			log("sparse " + (new_sparse_count * block_size) + " bytes")
+		
 			for ( var i = 0, file = files[i]; file; file = files[++i] )
 				if ( ! sparse_blocks_map( file.blocks_offset, blocks_map,
 						 file.blocks_map_offset, block_size, file.path ) )

@@ -32,3 +32,5 @@ cscript sparser.js torrent 100000000 "downloads/iso/" "linux.iso.torrent"
 cscript sparser.js ed2k 23% "downloads/iso/linux.iso"
 cscript sparser.js 1024 23% "downloads/iso/linux.iso"
 ```
+
+![sparse demo](https://ivan386.github.io/imgs/sparse_combain.svg)

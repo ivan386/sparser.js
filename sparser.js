@@ -283,19 +283,14 @@ function fill_sparse_blocks(blocks_offset, blocks_map, blocks_map_offset, block_
 	return sparse_blocks;
 }
 
-function select_random_blocks( sparse_count, max_count, blocks_map )
+function select_random_blocks( sparse_count, map_size, blocks_map )
 {
 	for (var selected_count = 0; selected_count < sparse_count; selected_count++)
 	{
-		var random_block = Math.floor( Math.random() * max_count )
+		var random_block = Math.floor( Math.random() * map_size )
 		
 		for (; blocks_map[ random_block ];)
-		{
-			if ( random_block >= max_count - random_block )
-				random_block = Math.floor( Math.random() * random_block );
-			else
-				random_block = random_block + 1 + Math.ceil( Math.random() * ( max_count - random_block - 1 ) );
-		}
+			random_block = Math.floor( Math.random() * map_size );
 		
 		blocks_map[ random_block ] = 1;
 	}
@@ -325,8 +320,8 @@ function sparse_random_blocks(blocks_offset, sparse_length, block_size, file_pat
 			return sparse_all_file(file_path, file_size);
 		else
 		{
-			var max_count = Math.ceil ( ( file_size - blocks_offset ) / block_size );
-			select_random_blocks( sparse_count, max_count, blocks_map );
+			var map_size = Math.ceil ( ( file_size - blocks_offset ) / block_size );
+			select_random_blocks( sparse_count, map_size, blocks_map );
 			return sparse_blocks_map( blocks_offset, blocks_map, 0, block_size, file_path );
 		}
 	}
@@ -531,13 +526,13 @@ function sparse_torrent_random(sparse_length, torrent_file, torrent_path)
 
 	if ( length > 0 )
 	{
-		var max_count = Math.ceil ( length / block_size );
+		var map_size = Math.ceil ( length / block_size );
 		
 		var new_sparse_count = get_sparse_count( sparse_length, block_size, length, sparse_blocks );
 		
-		if ( new_sparse_count < max_count - sparse_blocks )
+		if ( new_sparse_count < map_size - sparse_blocks )
 		{
-			select_random_blocks( new_sparse_count, max_count, blocks_map );
+			select_random_blocks( new_sparse_count, map_size, blocks_map );
 
 			log("sparse " + (new_sparse_count * block_size) + " bytes")
 		
